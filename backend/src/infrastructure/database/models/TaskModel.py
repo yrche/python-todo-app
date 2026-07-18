@@ -7,7 +7,7 @@ class TaskModel(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(default=None)
     priority: Mapped[int] = mapped_column(
         CheckConstraint("priority >= 1 AND priority <= 10")
