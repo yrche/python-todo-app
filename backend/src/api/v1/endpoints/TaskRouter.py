@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.dml import DeleteDMLState
 
 from src.domain.usecases.DeleteTaskUseCase import DeleteTaskUseCase
 from src.domain.usecases.ChangeTaskUseCase import ChangeTaskUseCase
@@ -24,7 +25,7 @@ tasks: STasks = STasks(data=[])
 
 
 # GET /api/v1/tasks/ Display list of tasks
-@router.get("/", response_model=STasks)
+@router.get("", response_model=STasks)
 async def get_tasks(
     session: AsyncSession = Depends(get_session),
     status: STaskStatus = STaskStatus.ALL,
@@ -38,7 +39,7 @@ async def get_tasks(
 
 
 # POST /api/v1/tasks/ Add a new task
-@router.post("/", response_model=STask)
+@router.post("", response_model=STask)
 async def add(
     task: STaskCreate,
     session: AsyncSession = Depends(get_session),
@@ -54,20 +55,20 @@ async def add(
     return STask.model_validate(new_task)
 
 
-# DELETE /api/v1/tasks/ Remove a task
+# DELETE /api/v1/tasks/{task_id} Remove a task
 @router.delete("/{task_id}")
 async def delete_task(
     task_id: int, session: AsyncSession = Depends(get_session)
-) -> STaskDelete:
+) -> STask:
     repository = TaskRepository(session)
     use_case = DeleteTaskUseCase(repository)
     deleted_task = await use_case.execute(task_id)
     if not deleted_task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return STaskDelete(msg=STaskDeleteMsg.SUCCESS, success=deleted_task)
+    return STask.model_validate(deleted_task)
 
 
-# PATCH /api/v1/tasks/ Change task
+# PATCH /api/v1/tasks/{task_id} Change task
 @router.patch("/{task_id}")
 async def change_task(
     task_id: int, task: STaskUpdate, session: AsyncSession = Depends(get_session)

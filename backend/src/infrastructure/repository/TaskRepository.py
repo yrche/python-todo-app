@@ -23,24 +23,30 @@ class TaskRepository(TaskRepositoryPort):
     ):
         query = select(TaskModel)
 
-        if status == STaskStatus.DONE:
-            query = query.where(TaskModel.complete == True)
-        elif status == STaskStatus.UNDONE:
-            query = query.where(TaskModel.complete == False)
-
-        if search:
-            search_expr = f"%{search}%"
+        if search and search.strip():
             query = query.where(
-                or_(
-                    TaskModel.title.ilike(search_expr),
-                    TaskModel.description.ilike(search_expr),
-                )
+                TaskModel.title.ilike(f"%{search}%")
+                | TaskModel.description.ilike(f"%{search}%")
             )
 
+        if status == STaskStatus.DONE:
+            query = query.where(TaskModel.complete.is_(True))
+        elif status == STaskStatus.UNDONE:
+            query = query.where(TaskModel.complete.is_(False))
+
+        order_clauses = []
+
+        if status not in (STaskStatus.DONE, STaskStatus.UNDONE):
+            order_clauses.append(TaskModel.complete.asc())
+
         if sort_priority == SSortOrder.ASC:
-            query = query.order_by(TaskModel.priority.asc())
+            order_clauses.append(TaskModel.priority.asc())
         elif sort_priority == SSortOrder.DESC:
-            query = query.order_by(TaskModel.priority.desc())
+            order_clauses.append(TaskModel.priority.desc())
+
+        order_clauses.append(TaskModel.id.desc())
+
+        query = query.order_by(*order_clauses)
 
         result = await self.session.execute(query)
         db_tasks = result.scalars().all()
@@ -72,7 +78,7 @@ class TaskRepository(TaskRepositoryPort):
         return Task.model_validate(db_task)
 
     @override
-    async def delete_task(self, task_id: int) -> bool:
+    async def delete_task(self, task_id: int) -> Task | bool:
         query = select(TaskModel).where(TaskModel.id == task_id)
         result = await self.session.execute(query)
         db_task = result.scalars().first()
@@ -83,4 +89,4 @@ class TaskRepository(TaskRepositoryPort):
         await self.session.delete(db_task)
         await self.session.commit()
 
-        return True
+        return Task.model_validate(db_task)
